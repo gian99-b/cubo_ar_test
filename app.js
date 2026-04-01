@@ -2,14 +2,18 @@ import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
 import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 
+
 let camera, scene, renderer;
 let controller, reticle;
 
+// Spazio di lavoro booleano
 let evaluator;
 let roomBrush, doorBrush, resultMesh;
 
-// PARAMETRI SCALA RIDOTTA
-let params = { width: 0.5, height: 0.3, depth: 0.5, doorPos: 0 };
+// Parametri dimensionali (iniziali in metri)
+let params = { width: 2, height: 1, depth: 2, doorPos: 10 };
+// Dimensioni fisse della porta
+const doorDims = { w: 0.8, h: 2.0, d: 0.5 }; // d è lo spessore del taglio
 
 let hitTestSource = null;
 let hitTestSourceRequested = false;
@@ -34,34 +38,40 @@ function init() {
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // BOTTONE AR
-    document.body.appendChild(ARButton.createButton(renderer, { 
+    const arButton = ARButton.createButton(renderer, { 
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.body }
-    }));
+    });
+    document.body.appendChild(arButton);
 
     // --- SETUP CSG ---
     evaluator = new Evaluator();
     
+    // 1. Il Brush della Stanza (Verde)
+    // Usiamo materiali trasparenti per vedere il taglierino rosso dentro
     const roomMat = new THREE.MeshPhongMaterial({ color: 0x44aa88, opacity: 0.6, transparent: true, side: THREE.DoubleSide });
     roomBrush = new Brush(new THREE.BoxGeometry(1, 1, 1), roomMat);
+    // TRUCCO PIVOT: Spostiamo la geometria in su di 0.5 (metà altezza)
+    // Così l'origine (0,0,0) del Brush corrisponde alla faccia inferiore.
     roomBrush.geometry.translate(0, 0.5, 0); 
     roomBrush.visible = false;
     scene.add(roomBrush);
 
-    // PORTA ROSSA (Deve essere visibile subito!)
+    // 2. Il Brush della Porta (Rosso - Il "Taglierino")
     const doorMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-    doorBrush = new Brush(new THREE.BoxGeometry(0.12, 0.2, 0.1), doorMat);
+    doorBrush = new Brush(new THREE.BoxGeometry(doorDims.w, doorDims.h, doorDims.d), doorMat);
+    // Anche per la porta, pivot alla base
     doorBrush.geometry.translate(0, 0.5, 0);
     doorBrush.visible = false;
     scene.add(doorBrush);
 
+    // 3. La Mesh del Risultato (inizialmente vuota, userà il materiale della stanza)
     resultMesh = new THREE.Mesh(new THREE.BufferGeometry(), roomMat);
     resultMesh.visible = false;
     scene.add(resultMesh);
 
-    // --- SETUP MIRINO (Cerchio Blu) ---
+    // --- SETUP MIRINO ---
     const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
     reticle = new THREE.Mesh(reticleGeometry, new THREE.MeshBasicMaterial({ color: 0x00aaff }));
     reticle.matrixAutoUpdate = false;
@@ -73,85 +83,119 @@ function init() {
     scene.add(controller);
 
     setupSliders();
+    
+    // Aggiornamento iniziale delle forme basato sui parametri di default
     updateShapes(); 
 
     window.addEventListener('resize', onWindowResize);
 }
 
+// Aggiorna le dimensioni dei Brush e la posizione della porta, senza tagliare
 function updateShapes() {
+    // Aggiorna la stanza (pivot alla base funzionerà grazie al translate(0, 0.5, 0) fatto nell'init)
     roomBrush.scale.set(params.width, params.height, params.depth);
-    // Porta alta la metà del cubo
-    doorBrush.scale.set(1, (params.height / 2) / 0.2, 1); 
+    
+    // Calcola la posizione della porta lungo il perimetro
     updateDoorPosition();
 }
 
+// Calcola dove mettere il taglierino rosso basato sullo slider 0-100%
 function updateDoorPosition() {
     const w = params.width;
     const d = params.depth;
     const perimetro = (w + d) * 2;
+    // Distanza percorsa lungo il perimetro basata sullo slider
     let dist = (params.doorPos / 100) * perimetro;
 
     let x, z, angle;
 
+    // Logica per far girare l'oggetto sui 4 lati
     if (dist <= w) { 
-        x = dist - w/2; z = d/2; angle = 0;
+        // Lato Frontale (X corre, Z fisso avanti)
+        x = dist - w/2;
+        z = d/2;
+        angle = 0;
     } else if (dist <= w + d) { 
-        x = w/2; z = d/2 - (dist - w); angle = Math.PI / 2;
+        // Lato Destro (X fisso destra, Z corre indietro)
+        x = w/2;
+        z = d/2 - (dist - w);
+        angle = Math.PI / 2;
     } else if (dist <= 2*w + d) { 
-        x = w/2 - (dist - (w+d)); z = -d/2; angle = Math.PI;
+        // Lato Posteriore (X corre indietro, Z fisso dietro)
+        x = w/2 - (dist - (w+d));
+        z = -d/2;
+        angle = Math.PI;
     } else { 
-        x = -w/2; z = -d/2 + (dist - (2*w+d)); angle = -Math.PI / 2;
+        // Lato Sinistro (X fisso sinistra, Z corre avanti)
+        x = -w/2;
+        z = -d/2 + (dist - (2*w+d));
+        angle = -Math.PI / 2;
     }
 
     doorBrush.position.set(x, 0, z);
     doorBrush.rotation.y = angle;
 }
 
+// Esegue l'operazione booleana vera e propria
 function performCut() {
     if (!scenePlaced) return;
+
+    console.log("Eseguo il taglio booleano...");
+    
+    // Applichiamo le trasformazioni (scale/position) alle geometrie prima del calcolo
     roomBrush.updateMatrixWorld(true);
     doorBrush.updateMatrixWorld(true);
+
+    // Eseguiamo la sottrazione: Stanza - Porta
+    // Il risultato viene scritto direttamente nella geometry di resultMesh
     evaluator.evaluate(roomBrush, doorBrush, SUBTRACTION, resultMesh);
     
-    // Aggiorna la stanza con il taglio permanente
-    roomBrush.geometry.dispose();
-    roomBrush.geometry = resultMesh.geometry.clone();
-    
+    // Ora mostriamo il risultato tagliato e nascondiamo la stanza intera
     resultMesh.visible = true;
     roomBrush.visible = false;
+    
+    // Aggiorniamo la resultMesh affinché sia nella stessa posizione della stanza
     resultMesh.position.copy(roomBrush.position);
+    resultMesh.rotation.copy(roomBrush.rotation);
 }
 
 function setupSliders() {
-    const ids = ['width', 'height', 'depth', 'doorPos'];
-    ids.forEach(id => {
+    const inputs = ['width', 'height', 'depth', 'doorPos'];
+    inputs.forEach(id => {
         document.getElementById(id).addEventListener('input', (e) => {
             params[id] = parseFloat(e.target.value);
             updateShapes();
-            // Se abbiamo già tagliato, ricalcoliamo il taglio se cambiamo dimensioni
-            if(resultMesh.visible && id !== 'doorPos') performCut();
+            
+            // Se abbiamo già tagliato, dobbiamo ricalcolare il taglio se cambiamo le dimensioni della stanza
+            // (Nota: per performance, in un'app reale si eviterebbe di ricalcolare CSG durante lo slide,
+            // ma solo al rilascio del mouse. Qui lo facciamo per semplicità).
+            if(resultMesh.visible && id !== 'doorPos') {
+                performCut();
+            }
         });
     });
+
     document.getElementById('intersectBtn').addEventListener('click', performCut);
 }
 
 function onSelect() {
     if (reticle.visible) {
-        // Prendi la posizione dal mirino blu
+        // Piazziamo l'origine del sistema booleano sul pavimento
         const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
         
-        // Sposta sia la stanza che il risultato del taglio nella nuova posizione
         roomBrush.position.copy(pos);
+        // Assicuriamoci che resultMesh parta dalla stessa posizione
         resultMesh.position.copy(pos); 
-        
-        // Rendi tutto visibile
+
+        // Mostriamo i Brush per la manipolazione iniziale
         roomBrush.visible = true;
         doorBrush.visible = true;
         
-        // Segna che la scena è stata piazzata (serve per attivare i tagli)
-        scenePlaced = true;
+        // Nascondiamo il vecchio risultato se stavamo riposizionando
+        resultMesh.visible = false; 
         
-        console.log("Cubo spostato a:", pos);
+        scenePlaced = true;
+        reticle.visible = false; // Nascondi mirino dopo il piazzamento
     }
 }
 
@@ -166,20 +210,23 @@ function animate() {
 }
 
 function render(timestamp, frame) {
-    if (frame) {
+    if (frame && !scenePlaced) {
         const referenceSpace = renderer.xr.getReferenceSpace();
         const session = renderer.xr.getSession();
 
         if (hitTestSourceRequested === false) {
-            session.requestReferenceSpace('viewer').then((refSpace) => {
-                session.requestHitTestSource({ space: refSpace }).then((source) => {
+            session.requestReferenceSpace('viewer').then(function (referenceSpace) {
+                session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
                     hitTestSource = source;
                 });
+            });
+            session.requestReferenceSpace('local').then(function (space) {
+                 // referenceSpace = space; // Non necessario sovrascrivere qui
             });
             hitTestSourceRequested = true;
         }
 
-        if (hitTestSource && !scenePlaced) {
+        if (hitTestSource) {
             const hitTestResults = frame.getHitTestResults(hitTestSource);
             if (hitTestResults.length > 0) {
                 const hit = hitTestResults[0];
