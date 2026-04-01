@@ -5,11 +5,10 @@ import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
 let camera, scene, renderer;
 let controller, reticle;
 
-// Spazio di lavoro booleano
 let evaluator;
 let roomBrush, doorBrush, resultMesh;
 
-// Parametri dimensionali (iniziali in metri - SCALA RIDOTTA)
+// PARAMETRI SCALA RIDOTTA
 let params = { width: 0.5, height: 0.3, depth: 0.5, doorPos: 0 };
 
 let hitTestSource = null;
@@ -35,12 +34,12 @@ function init() {
     renderer.xr.enabled = true;
     container.appendChild(renderer.domElement);
 
-    const arButton = ARButton.createButton(renderer, { 
+    // BOTTONE AR
+    document.body.appendChild(ARButton.createButton(renderer, { 
         requiredFeatures: ['hit-test'],
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.body }
-    });
-    document.body.appendChild(arButton);
+    }));
 
     // --- SETUP CSG ---
     evaluator = new Evaluator();
@@ -51,9 +50,9 @@ function init() {
     roomBrush.visible = false;
     scene.add(roomBrush);
 
-    // Rettangolo Rosso (Taglierino) - Dimensioni proporzionate al modellino
+    // PORTA ROSSA (Deve essere visibile subito!)
     const doorMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
-    doorBrush = new Brush(new THREE.BoxGeometry(0.12, 0.2, 0.1), doorMat); // Largo 12cm, Alto 20cm
+    doorBrush = new Brush(new THREE.BoxGeometry(0.12, 0.2, 0.1), doorMat);
     doorBrush.geometry.translate(0, 0.5, 0);
     doorBrush.visible = false;
     scene.add(doorBrush);
@@ -81,7 +80,7 @@ function init() {
 
 function updateShapes() {
     roomBrush.scale.set(params.width, params.height, params.depth);
-    // La porta diventa alta la metà del cubo
+    // Porta alta la metà del cubo
     doorBrush.scale.set(1, (params.height / 2) / 0.2, 1); 
     updateDoorPosition();
 }
@@ -90,12 +89,10 @@ function updateDoorPosition() {
     const w = params.width;
     const d = params.depth;
     const perimetro = (w + d) * 2;
-    // Slider 0-100% mappato sul perimetro
     let dist = (params.doorPos / 100) * perimetro;
 
     let x, z, angle;
 
-    // LOGICA PERIMETRO: Segue esattamente i bordi del cubo
     if (dist <= w) { 
         x = dist - w/2; z = d/2; angle = 0;
     } else if (dist <= w + d) { 
@@ -116,39 +113,45 @@ function performCut() {
     doorBrush.updateMatrixWorld(true);
     evaluator.evaluate(roomBrush, doorBrush, SUBTRACTION, resultMesh);
     
-    // Taglio Multiplo: il risultato diventa la nuova stanza
+    // Aggiorna la stanza con il taglio permanente
     roomBrush.geometry.dispose();
     roomBrush.geometry = resultMesh.geometry.clone();
     
     resultMesh.visible = true;
     roomBrush.visible = false;
     resultMesh.position.copy(roomBrush.position);
-    resultMesh.rotation.copy(roomBrush.rotation);
 }
 
 function setupSliders() {
-    const inputs = ['width', 'height', 'depth', 'doorPos'];
-    inputs.forEach(id => {
+    const ids = ['width', 'height', 'depth', 'doorPos'];
+    ids.forEach(id => {
         document.getElementById(id).addEventListener('input', (e) => {
             params[id] = parseFloat(e.target.value);
             updateShapes();
-            if(resultMesh.visible && id !== 'doorPos') {
-                performCut();
-            }
+            // Se abbiamo già tagliato, ricalcoliamo il taglio se cambiamo dimensioni
+            if(resultMesh.visible && id !== 'doorPos') performCut();
         });
     });
     document.getElementById('intersectBtn').addEventListener('click', performCut);
 }
 
 function onSelect() {
-    if (reticle.visible && !scenePlaced) {
+    if (reticle.visible) {
+        // Prendi la posizione dal mirino blu
         const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
+        
+        // Sposta sia la stanza che il risultato del taglio nella nuova posizione
         roomBrush.position.copy(pos);
         resultMesh.position.copy(pos); 
+        
+        // Rendi tutto visibile
         roomBrush.visible = true;
         doorBrush.visible = true;
+        
+        // Segna che la scena è stata piazzata (serve per attivare i tagli)
         scenePlaced = true;
-        reticle.visible = false;
+        
+        console.log("Cubo spostato a:", pos);
     }
 }
 
@@ -168,8 +171,8 @@ function render(timestamp, frame) {
         const session = renderer.xr.getSession();
 
         if (hitTestSourceRequested === false) {
-            session.requestReferenceSpace('viewer').then(function (referenceSpace) {
-                session.requestHitTestSource({ space: referenceSpace }).then(function (source) {
+            session.requestReferenceSpace('viewer').then((refSpace) => {
+                session.requestHitTestSource({ space: refSpace }).then((source) => {
                     hitTestSource = source;
                 });
             });
