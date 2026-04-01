@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { ARButton } from 'three/addons/webxr/ARButton.js';
-// Importiamo la libreria per le operazioni booleane
 import { SUBTRACTION, Brush, Evaluator } from 'three-bvh-csg';
+
+alert("Codice caricato! Cerca il tasto AR in basso.");
 
 let camera, scene, renderer;
 let controller, reticle;

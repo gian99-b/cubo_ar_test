@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modellatore AR Booleano</title>
+    <title>AR Booleana - Fix</title>
     <link rel="stylesheet" href="style.css">
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            "three-bvh-csg": "https://bundle.run/three-bvh-csg@0.0.16"
+            "three": "https://esm.sh/three@0.160.0",
+            "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+            "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.16"
         }
     }
     </script>
@@ -18,16 +18,14 @@
 <body>
     <div id="ui-container">
         <h3>Stanza (Verde)</h3>
-        <label>Larghezza (X): <input type="range" id="width" min="0.5" max="3" step="0.1" value="2"></label>
-        <label>Altezza (Y): <input type="range" id="height" min="0.5" max="2.5" step="0.1" value="1"></label>
-        <label>Profondità (Z): <input type="range" id="depth" min="0.5" max="3" step="0.1" value="2"></label>
-        
+        <label>Larghezza: <input type="range" id="width" min="0.5" max="3" step="0.1" value="2"></label>
+        <label>Altezza: <input type="range" id="height" min="0.5" max="2.5" step="0.1" value="1"></label>
+        <label>Profondità: <input type="range" id="depth" min="0.5" max="3" step="0.1" value="2"></label>
         <hr>
         <h3>Porta (Rossa)</h3>
-        <label>Posizione Muro %: <input type="range" id="doorPos" min="0" max="100" step="1" value="10"></label>
-        <button id="intersectBtn">TAGLIA PORTA (Sottrazione)</button>
+        <label>Posizione %: <input type="range" id="doorPos" min="0" max="100" step="1" value="10"></label>
+        <button id="intersectBtn">TAGLIA ORA</button>
     </div>
-
     <script type="module" src="app.js"></script>
 </body>
 </html>
