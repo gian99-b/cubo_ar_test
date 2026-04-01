@@ -3,8 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Booleana - Fix</title>
-    <link rel="stylesheet" href="style.css">
+    <title>AR Booleana</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #000; }
+        #ui-container {
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 8px;
+            max-width: 220px;
+        }
+        label { display: block; margin-bottom: 5px; font-size: 12px; color: black; }
+        input { width: 100%; }
+        button { width: 100%; margin-top: 10px; padding: 10px; background: #ff4444; color: white; border: none; border-radius: 4px; font-weight: bold; }
+    </style>
+    
     <script type="importmap">
     {
         "imports": {
@@ -17,14 +28,12 @@
 </head>
 <body>
     <div id="ui-container">
-        <h3>Stanza (Verde)</h3>
         <label>Larghezza: <input type="range" id="width" min="0.5" max="3" step="0.1" value="2"></label>
         <label>Altezza: <input type="range" id="height" min="0.5" max="2.5" step="0.1" value="1"></label>
         <label>Profondità: <input type="range" id="depth" min="0.5" max="3" step="0.1" value="2"></label>
         <hr>
-        <h3>Porta (Rossa)</h3>
-        <label>Posizione %: <input type="range" id="doorPos" min="0" max="100" step="1" value="10"></label>
-        <button id="intersectBtn">TAGLIA ORA</button>
+        <label>Posizione Porta %: <input type="range" id="doorPos" min="0" max="100" step="1" value="10"></label>
+        <button id="intersectBtn">TAGLIA PORTA</button>
     </div>
     <script type="module" src="app.js"></script>
 </body>
