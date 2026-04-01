@@ -3,38 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Booleana</title>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #000; }
-        #ui-container {
-            position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: rgba(255, 255, 255, 0.9); padding: 10px; border-radius: 8px;
-            max-width: 220px;
-        }
-        label { display: block; margin-bottom: 5px; font-size: 12px; color: black; }
-        input { width: 100%; }
-        button { width: 100%; margin-top: 10px; padding: 10px; background: #ff4444; color: white; border: none; border-radius: 4px; font-weight: bold; }
-    </style>
-    
+    <title>Cubo AR</title>
+    <link rel="stylesheet" href="style.css">
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://esm.sh/three@0.160.0",
-            "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
-            "three-bvh-csg": "https://esm.sh/three-bvh-csg@0.0.16"
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
         }
-    }
     </script>
 </head>
 <body>
     <div id="ui-container">
-        <label>Larghezza: <input type="range" id="width" min="0.5" max="3" step="0.1" value="2"></label>
-        <label>Altezza: <input type="range" id="height" min="0.5" max="2.5" step="0.1" value="1"></label>
-        <label>Profondità: <input type="range" id="depth" min="0.5" max="3" step="0.1" value="2"></label>
-        <hr>
-        <label>Posizione Porta %: <input type="range" id="doorPos" min="0" max="100" step="1" value="10"></label>
-        <button id="intersectBtn">TAGLIA PORTA</button>
+        <label>Larghezza (X): <input type="range" id="width" min="0.1" max="1" step="0.05" value="0.2"></label><br>
+        <label>Altezza (Y): <input type="range" id="height" min="0.1" max="1" step="0.05" value="0.2"></label><br>
+        <label>Profondità (Z): <input type="range" id="depth" min="0.1" max="1" step="0.05" value="0.2"></label>
     </div>
+
     <script type="module" src="app.js"></script>
 </body>
 </html>
